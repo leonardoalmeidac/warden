@@ -13,7 +13,7 @@ services:
   warden:
     build: .
     ports:
-      - "8000:8000"
+      - "9000:9000"
     environment:
       DATABASE_URL: postgresql+psycopg://warden:warden@db:5432/warden
       GROQ_API_KEY: ${GROQ_API_KEY}
