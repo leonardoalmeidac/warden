@@ -34,6 +34,7 @@ async def approve(approval_id: str, db: Session = Depends(get_db)):
 
     decision.executed = True
     approval.status = "approved"
+    approval.feedback = "Human approved the action"
     approval.resolved_at = datetime.utcnow()
     db.commit()
 
@@ -59,6 +60,7 @@ async def reject(approval_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Approval is already {approval.status}")
 
     approval.status = "rejected"
+    approval.feedback = "Human rejected the action"
     approval.resolved_at = datetime.utcnow()
     db.commit()
 
