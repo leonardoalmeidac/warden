@@ -37,7 +37,7 @@ async def ingest_event(payload: EventPayload, db: Session = Depends(get_db)):
         decision = reason(event, db)
 
         if decision.safe_to_auto:
-            result = execute_action(decision.action, event.id, event.context)
+            result = execute_action(decision.action, event.id, event.project_id, event.context)
             decision.executed = True
             event.status = "processed"
             db.commit()
@@ -92,7 +92,7 @@ async def list_events(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.get("/{event_id}")
-async def get_event(event_id: int, db: Session = Depends(get_db)):
+async def get_event(event_id: str, db: Session = Depends(get_db)):
     try:
         event = db.query(Event).filter(Event.id == event_id).first()
         if not event:

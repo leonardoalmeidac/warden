@@ -4,6 +4,7 @@ import os
 from groq import Groq
 from src.db.models import Decision, Event
 from sqlalchemy.orm import Session
+from src.core.history import get_workload_history
 
 logger = logging.getLogger(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -70,7 +71,8 @@ def apply_restrictions(event: Event, decision: dict) -> dict:
     
     return decision
 
-def reason(event: Event, db: Session, history: list = []) -> Decision:
+def reason(event: Event, db: Session) -> Decision:
+    history = get_workload_history(event.project_id, event.id, db)
     prompt = build_prompt(event, history)
 
     try:
@@ -113,6 +115,7 @@ def reason(event: Event, db: Session, history: list = []) -> Decision:
             "action": decision.action,
             "confidence": decision.confidence,
             "safe_to_auto": decision.safe_to_auto,
+            "history_used": len(history) > 0
         }))
 
         return decision
