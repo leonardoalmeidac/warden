@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from src.core.schemas import EventPayload
 from src.db.database import get_db
-from src.db.models import Event
+from src.db.models import ApprovalRequest, Event
+from src.reasoning.engine import reason
+from src.handlers.actions import execute_action
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["events"])
@@ -32,7 +34,50 @@ async def ingest_event(payload: EventPayload, db: Session = Depends(get_db)):
             "severity": event.severity,
         }))
 
-        return {"event_id": event.id, "status": "received"}
+        decision = reason(event, db)
+
+        if decision.safe_to_auto:
+            result = execute_action(decision.action, event.id, event.context)
+            decision.executed = True
+            event.status = "processed"
+            db.commit()
+
+            return {
+                "event_id": event.id,
+                "status": "processed",
+                "decision": {
+                    "action": decision.action,
+                    "confidence": decision.confidence,
+                    "reasoning": decision.reasoning,
+                    "safe_to_auto": decision.safe_to_auto,
+                }
+            }
+        else:
+            approval = ApprovalRequest(decision_id=decision.id)
+            db.add(approval)
+            event.status = "pending_approval"
+            db.commit()
+            db.refresh(approval)
+
+            logger.info(json.dumps({
+                "event": "approval_request_created",
+                "approval_id": approval.id,
+                "event_id": event.id,
+                "action": decision.action
+            }))
+
+            return {
+                "event_id": event.id,
+                "status": "pending_approval",
+                "decision": {
+                    "action": decision.action,
+                    "confidence": decision.confidence,
+                    "reasoning": decision.reasoning,
+                    "safe_to_auto": decision.safe_to_auto,
+                },
+                "approval_id": approval.id
+            }
+            
     except Exception as e:
         logger.error(f"Error creating event: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
