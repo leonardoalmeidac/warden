@@ -5,6 +5,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from src.api.events import router as events_router
 
 load_dotenv()
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Warden Service", version="1.0.0", lifespan=lifespan)
+app.include_router(events_router)
 
 @app.get("/health")
 async def health_check():
